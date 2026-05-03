@@ -1,94 +1,64 @@
-# Embedded C++ Foundations
+# Embedded ECU Logger
 
-This repository contains low-level C++ implementations focused on embedded systems concepts.
-The goal is to build deterministic, resource-aware code without relying on high-level abstractions.
+## Overview
 
----
+This project implements a small embedded-style logging system for an ECU-like environment.  
+The logger is designed for interrupt-driven systems where log events may be produced inside an ISR and consumed later by the main loop.
 
-## Objectives
+The project avoids dynamic memory allocation and STL containers in the core embedded modules.  
+It focuses on deterministic behavior, fixed-size data structures, and testability.
 
-* Write predictable and deterministic C++ code
-* Avoid unnecessary dynamic memory allocation
-* Understand memory layout and data ownership
-* Handle edge cases and failure scenarios explicitly
-* Build components that are safe for embedded environments
+## Goals
 
----
+- Implement a fixed-size ring buffer.
+- Design an ISR-safe logging interface.
+- Avoid dynamic memory allocation.
+- Avoid STL containers in embedded core modules.
+- Keep ISR execution time short and bounded.
+- Defer formatting and printing to the main loop.
+- Add unit tests for core behavior.
 
-## Project Structure
+## Non-Goals
 
-```
-embedded-cpp-foundations/
-│
-├── CMakeLists.txt
-├── README.md
-│
-├── ring-buffer/
-│   ├── CMakeLists.txt
-│   ├── main.cpp
-│   ├── ring_buffer.h
-│   ├── ring_buffer.cpp
-```
+- This project does not implement a full RTOS.
+- This project does not use dynamic logging strings inside ISR context.
+- This project does not perform UART/CAN output inside ISR.
+- Hardware support is planned later but not part of the first version.
 
----
+## Architecture
 
-## Implementations
+ISR context:
+- creates a compact fixed-size log entry
+- pushes it into a preallocated ring buffer
+- returns immediately
+
+Main loop context:
+- reads log entries from the buffer
+- formats or processes logs outside ISR context
+
+## Current Modules
 
 ### Ring Buffer
 
-A fixed-size FIFO buffer implemented without STL or dynamic memory.
+A fixed-size FIFO buffer implemented without STL containers or dynamic allocation.
 
-**Key properties:**
+### ISR Logger
 
-* Constant memory usage
-* Deterministic behavior
-* No data overwrite when full
-* Explicit handling of overflow and underflow
+A logger that stores compact log entries from ISR context and allows the main loop to consume them later.
 
-**Core operations:**
+## Planned Modules
 
-* `push(int value)` → inserts data, fails if full
-* `pop(int& value)` → retrieves data, fails if empty
-* `isEmpty()` → checks if buffer is empty
-* `isFull()` → checks if buffer is full
+- CAN frame parser
+- ECU state machine
+- STM32 hardware port
+- UART log output
+- timer-based timestamps
 
----
-
-## Build Instructions
+## Build and Test
 
 ```bash
 mkdir build
 cd build
 cmake ..
-make
-```
-
----
-
-## Testing
-
-Basic tests are implemented in `main.cpp`:
-
-* Fill buffer until full
-* Attempt overflow (must fail)
-* Empty buffer and verify FIFO order
-* Attempt underflow (must fail)
-* Wrap-around behavior validation
-
----
-
-## Design Constraints
-
-* No use of STL containers
-* No dynamic memory allocation (`new`, `malloc`)
-* Fixed-size buffer
-* Deterministic execution
-
----
-
-## Notes
-
-This repository is focused on fundamentals.
-Implementations prioritize correctness, clarity, and predictability over abstraction.
-
----
+cmake --build .
+ctest
